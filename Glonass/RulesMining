@@ -1,0 +1,73 @@
+import csv
+import re
+import nltk
+import pandas as pd
+import pymystem3
+import numpy as np
+
+from nltk.corpus import stopwords
+from pymystem3 import Mystem
+from string import punctuation
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import pca, PCA, SparsePCA
+
+nltk.download("stopwords")
+
+dataSet = [[]]
+bag_of_words = []
+tokens_collection = []
+lexicon=[]
+vectorizer = CountVectorizer()
+
+
+def sanitize_line(line):
+    print('Source line: %s' % line)
+    #regex = re.compile('[^a-zA-Z]')
+    words = line.split(' ')
+
+    mystem = Mystem()
+    ru_stopwords = stopwords.words('russian')
+    tokens = mystem.lemmatize(line.lower())
+    tokens = [token for token in tokens if token not in ru_stopwords \
+              and token != " " \
+              and len(token) > 1
+              and token.strip().isalpha()]
+    lexicon.extend(tokens)
+
+    result = " ".join(tokens)
+    #result = re.sub(r'[^а-яА-Я]{2,}', '', result)
+    print("Lemmas: ", result)
+    return result
+
+def count_occurrences(inputArray):
+    df = pd.DataFrame(data=np.array(inputArray), columns=['terms'])
+    aggregated_df = df.groupby(['terms'])['terms'].count()
+    aggregated_df.to_csv(path='C:\\Users\\Chokoev\\Desktop\\Статистики\\most_used_terms.csv',
+                         sep=";",quotechar='"',encoding='UTF-8')
+    print(aggregated_df)
+
+with open('E:\\Data\Glonass\descriptionscategories.csv', newline='', encoding='utf-8') as csvFile:
+    reader = csv.reader(csvFile, delimiter=';', quotechar='"')
+    i = 1
+    for row in reader:
+        #if i >=50: break
+        if len(row) == 2:
+            if (row[0] and row[1]):
+                #Prepare dataset for learning
+                clear_line = sanitize_line(row[0])
+                dataSet.append([clear_line, row[1]])
+                tokens_collection.append(clear_line)
+        i = i + 1
+
+count_occurrences(lexicon)
+
+inputMatrix = vectorizer.fit_transform(tokens_collection)
+bag_of_words = vectorizer.get_feature_names()
+print(bag_of_words)
+print (inputMatrix.toarray())
+
+pca = SparsePCA(n_components=2)
+principalComponents = pca.fit_transform(inputMatrix.toarray())
+principalDf = pd.DataFrame(data = principalComponents, columns=['PCC1', 'PCC2'])
+#principalDf['category'] = np.array(dataSet[:,1])
+#principalDf.plot()
